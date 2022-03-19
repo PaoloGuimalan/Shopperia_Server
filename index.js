@@ -343,6 +343,17 @@ function makeid(length) {
    return result;
 }
 
+async function make_date(){
+    var today = await new Date();
+    var dd = await String(today.getDate()).padStart(2, '0');
+    var mm = await String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = await today.getFullYear();
+    
+    var today_fixed = await mm + '/' + dd + '/' + yyyy;
+
+    return await today_fixed;
+}
+
 app.post('/prpicChange', jwtverifier, (req, res) => {
     const userName = req.body.userName;
     const file = req.files.prpic;
@@ -541,10 +552,48 @@ app.get('/getselectedvariety/:product_id/:type/:size', jwtverifier, (req, res) =
 })
 
 app.post('/postorder', jwtverifier, (req, res) => {
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
     const user_id = req.body.user_id;
     const receiver = req.body.receiver;
+    const full_address = req.body.full_address;
+    const province = req.body.province;
+    const postalCode = req.body.postalCode;
+    const product_id = req.body.product_id;
+    const var_id = req.body.var_id;
+    const variety = req.body.variety;
     const status = req.body.status;
-    console.log(req.body);
+    const date_ordered = today_fixed;
+    const date_accomplished = "Not Accomplished";
+    const order_id = `${product_id}_${makeid(10)}`;
+    const order_total = req.body.order_total;
+
+    // console.log(req.body);
+    if(var_id == "" || var_id == null){
+        res.send({status: false , message: "No Product Selected"});
+    }
+    else{
+        if(variety == 0 || variety == null){
+            res.send({status: false, message: "No Quantity to Order"});
+        }
+        else{
+            db.query("INSERT INTO user_orders (user_id,receiver,fulladdress,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", [user_id,receiver,full_address,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total], (err) => {
+                if(err){
+                    console.log(err);
+                    res.send({status: false, message: "Order / Add to Cart Unsuccessful"});
+                }
+                else{
+                    res.send({status: true, message: status == "Cart"? "Product has been Added to Cart" : "Product has been Successfully Ordered"});
+                }
+            })
+        }
+    }
 })
 
 app.listen(PORT, () => {
