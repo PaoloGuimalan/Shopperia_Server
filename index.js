@@ -514,7 +514,7 @@ app.post('/createSeller', (req, res) => {
     })
 })
 
-app.get('/gettypes/:pr_id', jwtverifier, (req, res) => {
+app.get('/gettypes/:pr_id', (req, res) => {
     const product_id = req.params.pr_id;
 
     db.query("SELECT var_typename FROM products_variety WHERE pr_id = ? group by var_typename", product_id, (err, result) => {
@@ -594,6 +594,23 @@ app.post('/postorder', jwtverifier, (req, res) => {
             })
         }
     }
+})
+
+app.get('/cartProducts/:user_id/:status', jwtverifier, (req, res) => {
+    const user_id = req.params.user_id;
+    const status = req.params.status;
+
+    // console.log(`${user_id} | ${status}`);
+
+    db.query("SELECT * FROM cart_view WHERE user_id = ? AND status = ?", [user_id, status], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result)
+            // console.log(result);
+        }
+    })
 })
 
 app.listen(PORT, () => {
