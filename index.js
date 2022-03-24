@@ -206,7 +206,7 @@ app.get('/searchproducts/:searchquery', (req, res) => {
     const query = req.params.searchquery;
     const queryRes = `%${query.split("_").join(" ")}%`;
     // console.log(queryRes);
-    db.query("SELECT * FROM productspricesmaxmin WHERE prname LIKE ?", queryRes, (err, result) => {
+    db.query("SELECT * FROM productspricesmaxmin WHERE prname LIKE ? OR shopname LIKE ?", [queryRes, queryRes], (err, result) => {
         if(err){
             console.log(err);
         }
@@ -620,6 +620,19 @@ app.get('/shopImgs/:profimg', (req, res) => {
 
     // res.sendFile()
     const imgResult = res.sendFile(filePath);
+})
+
+app.get('/searchshop/:shopname', (req, res) => {
+    const shopname = req.params.shopname;
+    const shopnamequery = `%${shopname.split("_").join(" ")}%`
+    db.query("SELECT * FROM seller_prev WHERE shopName LIKE ?", shopnamequery, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
 })
 
 app.listen(PORT, () => {
