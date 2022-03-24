@@ -191,8 +191,8 @@ app.get('/profileImgs/:profimg', (req, res) => {
     const imgResult = res.sendFile(filePath);
 })
 
-app.get('/getProducts', (req, res) => {
-    db.query("SELECT * FROM productspricesmaxmin", (err, result) => {
+app.get('/getProducts/:shopID', (req, res) => {
+    db.query("SELECT * FROM productspricesmaxmin WHERE shopname = ?", req.params.shopID, (err, result) => {
         if(err){
             console.log(err);
         }
@@ -503,8 +503,9 @@ app.post('/createSeller', (req, res) => {
     const password = req.body.password;
     const nameNoSpace = shop.split(" ").join("");
     const userName = `${nameNoSpace}_${makeid(7)}`
+    const shop_link_img = 'http://localhost:3001/shopImgs/Default_Shop.jpg';
 
-    db.query('INSERT INTO seller_accounts (seller_firstName, seller_middleName, seller_lastName, email, password, shopName, shopID) VALUES (?,?,?,?,?,?,?)', [firstName, middleName, lastName, email, password, shop, userName], (err, result) => {
+    db.query('INSERT INTO seller_accounts (seller_firstName, seller_middleName, seller_lastName, email, password, shopName, shopID, shop_preview) VALUES (?,?,?,?,?,?,?,?)', [firstName, middleName, lastName, email, password, shop, userName, shop_link_img], (err, result) => {
         if(err){
             res.send({err: err, content: "Unable to Register!", status: false});
         }
@@ -611,6 +612,14 @@ app.get('/cartProducts/:user_id/:status', jwtverifier, (req, res) => {
             // console.log(result);
         }
     })
+})
+
+app.get('/shopImgs/:profimg', (req, res) => {
+    const img = req.params.profimg;
+    const filePath = path.join(`${__dirname}`, `/uploads/seller_profiles/${img}`);
+
+    // res.sendFile()
+    const imgResult = res.sendFile(filePath);
 })
 
 app.listen(PORT, () => {
