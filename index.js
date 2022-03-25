@@ -635,6 +635,60 @@ app.get('/searchshop/:shopname', (req, res) => {
     })
 })
 
+app.get('/getsellerinfo/:sellerID', jwtverifier, (req, res) => {
+    const sellerID = req.params.sellerID;
+
+    db.query("SELECT * FROM seller_prev WHERE shopID = ?", sellerID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+            // console.log(sellerID);
+        }
+    })
+})
+
+app.post('/updateshopico', jwtverifier, (req, res) => {
+    const uplfile = req.files.ico;
+    const shopID = req.body.shopID;
+    const type = req.files.ico.mimetype.split("/")[1];
+    const fileNewName = `${shopID}_icon_${makeid(10)}.${type}`
+    const directory = path.join(`${__dirname}`, `/uploads/seller_profiles/${fileNewName}`);
+    const newLink = `http://localhost:3001/shopImgs/${fileNewName}`
+
+    // console.log(directory);
+    uplfile.mv(directory, (err) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            db.query("UPDATE seller_accounts SET shop_preview = ? WHERE shopID = ?", [newLink, shopID], (err) => {
+                if(err){
+                    console.log(err);
+                }
+            })
+        }
+    })
+})
+
+app.get('/ordersfetch/:shopID/:status', jwtverifier, (req, res) => {
+    const shopID = req.params.shopID;
+    const status = req.params.status;
+
+    // console.log(req.params.shopID);
+
+    db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ?", [shopID, status], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result)
+            // console.log(result);
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
