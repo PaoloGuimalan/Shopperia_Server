@@ -83,6 +83,7 @@ app.post('/createPostProduct', jwtverifier, (req, res) => {
     const prbrand = req.body.prbrand;
     const product_id = req.body.product_id;
     const shopName = req.body.shopname;
+    const shopID = req.body.shopID;
 
     var today = new Date();
     var dd = String(today.getDate()).padStart(2, '0');
@@ -107,7 +108,7 @@ app.post('/createPostProduct', jwtverifier, (req, res) => {
                 console.log(err);
             }
             else{
-                db.query("INSERT INTO products_list (prname, prdesc, prcat, prbrand, base_preview, product_id, date_posted, shopname) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [prname, prdesc, prcat, prbrand, link, product_id, today_fixed, shopName], (err, result) => {
+                db.query("INSERT INTO products_list (prname, prdesc, prcat, prbrand, base_preview, product_id, date_posted, shopname, shopID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [prname, prdesc, prcat, prbrand, link, product_id, today_fixed, shopName, shopID], (err, result) => {
                     if(err){
                         console.log(err);
                     }
@@ -685,6 +686,19 @@ app.get('/ordersfetch/:shopID/:status', jwtverifier, (req, res) => {
         else{
             res.send(result)
             // console.log(result);
+        }
+    })
+})
+
+app.post('/updateOrderStatus', jwtverifier, (req, res) => {
+    const order_id = req.body.order_id;
+    const status = req.body.status;
+
+    // console.log(order_id);
+
+    db.query("UPDATE user_orders SET status = ? WHERE order_id = ? ", [status, order_id], (err) => {
+        if(err){
+            console.log(err);
         }
     })
 })
