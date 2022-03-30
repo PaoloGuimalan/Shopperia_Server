@@ -703,6 +703,20 @@ app.post('/updateOrderStatus', jwtverifier, (req, res) => {
     })
 })
 
+app.get('/getShopPreview/:shopID', (req, res) => {
+    const shopID = req.params.shopID;
+    db.query("SELECT * FROM seller_accounts WHERE shopID = ?", shopID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            //{shop_preview: "", shopName: "", shopID: "", shopEmail: ""}
+            // console.log(result[0]);
+            res.send({shop_preview: result[0].shop_preview, shopName: result[0].shopName, shopID: result[0].shopID, shopEmail: result[0].email})
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
