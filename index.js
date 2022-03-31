@@ -717,6 +717,77 @@ app.get('/getShopPreview/:shopID', (req, res) => {
     })
 })
 
+app.get('/messages/:username', jwtverifier, (req, res) => {
+    const username = req.params.username;
+
+    db.query("SELECT * FROM messages_table WHERE id IN (SELECT MAX(id) FROM messages_table WHERE conversation_id IN (SELECT conversation_id FROM messages_table WHERE messages_table.from = ? OR messages_table.to = ? GROUP BY conversation_id) GROUP BY conversation_id) ORDER BY id DESC", [username, username], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/messagesInbox/:username/:othername', jwtverifier, (req, res) => {
+    const username = req.params.username;
+    const othername = req.params.othername;
+
+    db.query("SELECT * FROM messages_table WHERE messages_table.from = ? AND messages_table.to = ? OR messages_table.from = ? AND messages_table.to = ? Order by id", [othername, username, username, othername], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            res.send(result);
+        }
+    })
+})
+
+app.post('/sendMessage', jwtverifier, (req, res) => {
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
+    const message_content = req.body.message_content;
+    const from = req.body.from;
+    const to = req.body.to;
+
+    function sendPrompt(conversation_id){
+        db.query("INSERT INTO messages_table (conversation_id, message_content, date_sent, messages_table.from, messages_table.to) VALUES (?,?,?,?,?)", [conversation_id, message_content, today_fixed, from, to], (err) => {
+            if(err){
+                console.log(err);
+            }
+            else{
+                res.send({status: true});
+            }
+        })
+    }
+
+    db.query("SELECT conversation_id FROM messages_table WHERE messages_table.from = ? AND messages_table.to = ? OR messages_table.from = ? AND messages_table.to = ? Order by id", [to, from, from, to], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            if(result.length == 0){
+                // console.log(true);
+                const conversation_id_null = `chat_id_${makeid(15)}`;
+                sendPrompt(conversation_id_null);
+            }
+            else{
+                const conversation_id_defined = result[0].conversation_id;
+                sendPrompt(conversation_id_defined);
+                // console.log(false);
+            }
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
