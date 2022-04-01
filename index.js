@@ -7,6 +7,15 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const fileUpload = require("express-fileupload");
 const path = require("path")
+const nodemailer = require("nodemailer");
+
+const accountTransport = nodemailer.createTransport({
+    service: "gmail",
+    auth:{
+        user: "shopperia.philippines@gmail.com",
+        pass: "shopperia187"
+    }
+})
 
 const connectionMysql = require("./connections/connectionMysql");
 const db = mysql.createConnection(connectionMysql);
@@ -458,6 +467,13 @@ app.post('/createUser', (req, res) => {
        return result;
     }
 
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
     const firstName = req.body.firstName;
     const nameNoSpace = firstName.split(" ").join("");
     const userName = `${nameNoSpace}_${makeid(7)}`
@@ -470,7 +486,15 @@ app.post('/createUser', (req, res) => {
 
     const profile_link = `http://localhost:3001/profileImgs/Default_${gender}.jpg`;
 
+    const verification_code_generated = makeid(5);
+
     // console.log(gender);
+    const mailOptions = {
+        from: 'shopperia.philippines@gmail.com',
+        to: email,
+        subject: 'Shopperia Customer Verification',
+        text: `You have Successfully Registered in Shopperia as Customer. To activate your account enter the code ${verification_code_generated} in the first Log In.`
+    }
 
     db.query('INSERT INTO user_accounts (firstName, middleName, lastName, email, password, userName, profile_pic, gender) VALUES (?,?,?,?,?,?,?,?)', [firstName, middleName, lastName, email, password, userName, profile_link, gender], (err, result) => {
         if(err){
@@ -478,7 +502,26 @@ app.post('/createUser', (req, res) => {
             // console.log(err);
         }
         else{
-            res.send({content:"Successfully Registered!" ,status: true});
+            db.query("INSERT INTO verification_data (ver_status_one, ver_status_two, ver_status_three, user_id) VALUES (?,?,?,?)", ["unverified", "unverified", "unverified", userName], (err) => {
+                if(err){
+                    console.log(err);
+                }
+                else{
+                    db.query("INSERT INTO verification_codes (code, date_set, user_id) VALUES (?,?,?)", [verification_code_generated, today_fixed, userName], (err) => {
+                        if(err){
+                            console.log(err);
+                        }
+                        else{
+                            res.send({content:"Successfully Registered!" ,status: true});
+                            accountTransport.sendMail(mailOptions, (err, info) => {
+                                if(err){
+                                    console.log(err);
+                                }
+                            })
+                        }
+                    })
+                }
+            })
         }
     })
 })
@@ -496,6 +539,17 @@ app.post('/createSeller', (req, res) => {
        return result;
     }
 
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
+    const verification_code_generated = makeid(5);
+
+    // console.log(gender);
+
     const firstName = req.body.firstName;
     const middleName = req.body.middleName;
     const lastName = req.body.lastName;
@@ -506,12 +560,39 @@ app.post('/createSeller', (req, res) => {
     const userName = `${nameNoSpace}_${makeid(7)}`
     const shop_link_img = 'http://localhost:3001/shopImgs/Default_Shop.jpg';
 
+    const mailOptions = {
+        from: 'shopperia.philippines@gmail.com',
+        to: email,
+        subject: 'Shopperia Seller Verification',
+        text: `You have Successfully Registered in Shopperia as Seller. To activate your account enter the code ${verification_code_generated} in the first Log In.`
+    }
+
     db.query('INSERT INTO seller_accounts (seller_firstName, seller_middleName, seller_lastName, email, password, shopName, shopID, shop_preview) VALUES (?,?,?,?,?,?,?,?)', [firstName, middleName, lastName, email, password, shop, userName, shop_link_img], (err, result) => {
         if(err){
             res.send({err: err, content: "Unable to Register!", status: false});
         }
         else{
-            res.send({content:"Successfully Registered!" ,status: true});
+            // res.send({content:"Successfully Registered!" ,status: true});
+            db.query("INSERT INTO verification_data (ver_status_one, ver_status_two, ver_status_three, user_id) VALUES (?,?,?,?)", ["unverified", "unverified", "unverified", userName], (err) => {
+                if(err){
+                    console.log(err);
+                }
+                else{
+                    db.query("INSERT INTO verification_codes (code, date_set, user_id) VALUES (?,?,?)", [verification_code_generated, today_fixed, userName], (err) => {
+                        if(err){
+                            console.log(err);
+                        }
+                        else{
+                            res.send({content:"Successfully Registered!" ,status: true});
+                            accountTransport.sendMail(mailOptions, (err, info) => {
+                                if(err){
+                                    console.log(err);
+                                }
+                            })
+                        }
+                    })
+                }
+            })
         }
     })
 })
