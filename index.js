@@ -48,6 +48,92 @@ const jwtverifier = (req, res, next) => {
                     req.userTokenUserName = decode.userName;
                     req.acc = "buyer";
                     // console.log(decode.userName);
+                    // next();
+                    db.query("SELECT ver_status_one FROM verification_data WHERE user_id = ?", [decode.userName], (err, result) => {
+                        if(err){
+                            res.send({status: false, message: "Token Denied!"});
+                        }
+                        else{
+                            if(result.length == 0){
+                                res.send({status: false, message: "Token Denied!"});
+                            }
+                            else{
+                                if(result[0].ver_status_one == "unverified"){
+                                    res.send({status: false, message: "Token Denied!"});
+                                }
+                                else{
+                                    next();
+                                }
+                            }
+                        }
+                    })
+                }
+            })
+        }
+        else if(tokenFromSeller && !tokenFromUser){
+            jwt.verify(tokenFromSeller, "shopperiaprojectinsia102", (err, decode) => {
+                if(err){
+                    res.send({status: false, message: "Token Denied!"});
+                }
+                else{
+                    const shopID = decode.userName;
+                    db.query("SELECT shopName FROM seller_accounts WHERE shopID = ?", shopID, (err, result) => {
+                        if(err){
+                            console.log(err);
+                        }
+                        else{
+                            req.userTokenID = decode.id;
+                            req.userTokenUserName = decode.userName;
+                            req.shop
+                            req.acc = "seller";
+                            req.shopName = result.map((item) => item.shopName).join("");
+                            // console.log(result.map((item) => item.shopName));
+                            // next();
+                            db.query("SELECT ver_status_one FROM verification_data WHERE user_id = ?", [decode.userName], (err, result) => {
+                                if(err){
+                                    res.send({status: false, message: "Token Denied!"});
+                                }
+                                else{
+                                    if(result.length == 0){
+                                        res.send({status: false, message: "Token Denied!"});
+                                    }
+                                    else{
+                                        if(result[0].ver_status_one == "unverified"){
+                                            res.send({status: false, message: "Token Denied!"});
+                                        }
+                                        else{
+                                            next();
+                                        }
+                                    }
+                                }
+                            })
+                        }
+                    })
+                }
+            })
+            // console.log(tokenFromSeller);
+        }
+    }
+}
+
+const jwtverifierverification = (req, res, next) => {
+    const tokenFromUser = req.headers["x-access-token"];
+    const tokenFromSeller = req.headers["x-access-tokenseller"];
+
+    if(!tokenFromUser && !tokenFromSeller){
+        res.send({status: false, message: "No Token Received!"});
+    }
+    else{
+        if(tokenFromUser && !tokenFromSeller){
+            jwt.verify(tokenFromUser, "shopperiaprojectinsia102", (err, decode) => {
+                if(err){
+                    res.send({status: false, message: "Token Denied!"});
+                }
+                else{
+                    req.userTokenID = decode.id;
+                    req.userTokenUserName = decode.userName;
+                    req.acc = "buyer";
+                    // console.log(decode.userName);
                     next();
                 }
             })
@@ -297,10 +383,23 @@ app.post('/loginUser', (req, res) => {
                 }
                 else{
                     const userName = result.map(user => user.userName).join("");
-                    const token = jwt.sign({userName}, "shopperiaprojectinsia102", {
-                        expiresIn: 60 * 60 * 24 * 7
+                    db.query("SELECT ver_status_one FROM verification_data WHERE user_id = ?", [userName], (err, result2) => {
+                        if(err){
+                            console.log(err);
+
+                        }
+                        else{
+                            const token = jwt.sign({userName}, "shopperiaprojectinsia102", {
+                                expiresIn: 60 * 60 * 24 * 7
+                            })
+                            if(result2[0].ver_status_one == "unverified"){
+                                res.send({token: token, status: true, verified: false, message: "Verification Process Needed!", userName: userName});
+                            }
+                            else{
+                                res.send({token: token, status: true, verified: true, message: "Logged In Successfully!", userName: userName});
+                            }
+                        }
                     })
-                    res.send({token: token, status: true, message: "Logged In Successfully!", userName: userName});
                 }
             }
         })
@@ -316,11 +415,24 @@ app.post('/loginUser', (req, res) => {
                 }
                 else{
                     const userName = result.map(user => user.shopID).join("");
-                    const token = jwt.sign({userName}, "shopperiaprojectinsia102", {
-                        expiresIn: 60 * 60 * 24 * 7
-                    })
-                    res.send({tokenseller: token, status: true, message: "Logged In Successfully!", userName: userName});
                     // console.log(userName)
+                    db.query("SELECT ver_status_one FROM verification_data WHERE user_id = ?", [userName], (err, result2) => {
+                        if(err){
+                            console.log(err);
+
+                        }
+                        else{
+                            const token = jwt.sign({userName}, "shopperiaprojectinsia102", {
+                                expiresIn: 60 * 60 * 24 * 7
+                            })
+                            if(result2[0].ver_status_one == "unverified"){
+                                res.send({tokenseller: token, status: true, verified: false, message: "Verification Process Needed!", userName: userName});
+                            }
+                            else{
+                                res.send({tokenseller: token, status: true, verified: true, message: "Logged In Successfully!", userName: userName});
+                            }
+                        }
+                    })
                 }
             }
         })
@@ -864,6 +976,72 @@ app.post('/sendMessage', jwtverifier, (req, res) => {
                 const conversation_id_defined = result[0].conversation_id;
                 sendPrompt(conversation_id_defined);
                 // console.log(false);
+            }
+        }
+    })
+})
+
+app.post('/verifyUser', jwtverifierverification, (req, res) => {
+    const userName = req.body.userName;
+    const userToken = req.body.usertoken;
+    const userCode = req.body.userCode;
+
+    // console.log(userCode);
+    db.query("SELECT code FROM verification_codes WHERE user_id = ?", [userName], (err, result) => {
+        if(err){
+            console.log(err);
+            res.send({status: false, message: "Cannot Verify Account"});
+        }
+        else{
+            // console.log(result[0].code);
+            if(result[0].code == userCode){
+                // console.log(true);
+                db.query("UPDATE verification_data SET ver_status_one = 'verified' WHERE user_id = ?", userName, (err) => {
+                    if(err){
+                        console.log(err);
+                        res.send({status: false, message: "Cannot Verify Account"});
+                    }
+                    else{
+                        res.send({status: true, message: "Account Verified"});
+                    }
+                })
+            }
+            else{
+                // console.log(false);
+                res.send({status: false, message: "Invalid Code"});
+            }
+        }
+    })
+})
+
+app.post('/verifySeller', jwtverifierverification, (req, res) => {
+    const userName = req.body.shopID;
+    const userToken = req.body.sellertoken;
+    const userCode = req.body.userCode;
+
+    // console.log(userCode);
+    db.query("SELECT code FROM verification_codes WHERE user_id = ?", [userName], (err, result) => {
+        if(err){
+            console.log(err);
+            res.send({status: false, message: "Cannot Verify Account"});
+        }
+        else{
+            // console.log(result[0].code);
+            if(result[0].code == userCode){
+                // console.log(true);
+                db.query("UPDATE verification_data SET ver_status_one = 'verified' WHERE user_id = ?", userName, (err) => {
+                    if(err){
+                        console.log(err);
+                        res.send({status: false, message: "Cannot Verify Account"});
+                    }
+                    else{
+                        res.send({status: true, message: "Account Verified"});
+                    }
+                })
+            }
+            else{
+                // console.log(false);
+                res.send({status: false, message: "Invalid Code"});
             }
         }
     })
