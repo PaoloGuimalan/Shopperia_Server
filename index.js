@@ -805,6 +805,7 @@ app.post('/postorder', jwtverifier, (req, res) => {
     const payment_status = payment_method != "COD" && payment_method != "none"? "paid" : "not_paid";
     const email = req.body.email;
     const shopName = req.body.shopName;
+    const remarks = status == "Cart"? "Saved to Cart" : payment_method != "COD" && payment_method != "none"? "Preparing Order" : "Confirming Order";
 
     // console.log(req.body);
     if(var_id == "" || var_id == null){
@@ -815,7 +816,7 @@ app.post('/postorder', jwtverifier, (req, res) => {
             res.send({status: false, message: "No Quantity to Order"});
         }
         else{
-            db.query("INSERT INTO user_orders (user_id,receiver,fulladdress,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [user_id,receiver,full_address,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status], (err) => {
+            db.query("INSERT INTO user_orders (user_id,receiver,fulladdress,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status,remarks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [user_id,receiver,full_address,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status,remarks], (err) => {
                 if(err){
                     console.log(err);
                     res.send({status: false, message: "Order / Add to Cart Unsuccessful"});
@@ -927,10 +928,11 @@ app.get('/ordersfetch/:shopID/:status', jwtverifier, (req, res) => {
 app.post('/updateOrderStatus', jwtverifier, (req, res) => {
     const order_id = req.body.order_id;
     const status = req.body.status;
+    const remarks = status == "Removed"? "Removed from Cart":"Confirming Order";
 
     // console.log(order_id);
 
-    db.query("UPDATE user_orders SET status = ? WHERE order_id = ? ", [status, order_id], (err) => {
+    db.query("UPDATE user_orders SET status = ?, remarks = ? WHERE order_id = ? ", [status, remarks, order_id], (err) => {
         if(err){
             console.log(err);
         }
