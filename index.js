@@ -762,7 +762,7 @@ const emailForPaid = (user_id, order_id, product_id, email, payment_method, orde
         subject: `Receipt for ${orderID}`,
         // text: `Good Day ${userName}! You have Successfully paid you Order: ${orderID} using Payment Method of ${paymentMethod} with the total price of PHP${totalPrice}.`
         html: `<h3>Good Day ${userName}!</h3><br />
-        <p>You have Successfully paid you <b>Order: ${orderID}</b> using Payment Method of <b>${paymentMethod}</b> with the total price of <b>PHP ${totalPrice}</b>.</p><br />
+        <p>You have Successfully paid your <b>Order: ${orderID}</b> using Payment Method of <b>${paymentMethod}</b> with the total price of <b>PHP ${totalPrice}</b>.</p><br />
         <span><b>Shop Name: ${shopNameOrder}</span></b><br />
         <span><b>Product ID: ${productID}</span></b><br />
         <span><b>Date of Payment: ${datePaid}</b></span>`
