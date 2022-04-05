@@ -302,7 +302,7 @@ app.get('/searchproducts/:searchquery', (req, res) => {
     const query = req.params.searchquery;
     const queryRes = `%${query.split("_").join(" ")}%`;
     // console.log(queryRes);
-    db.query("SELECT * FROM productspricesmaxmin WHERE prname LIKE ? OR shopname LIKE ?", [queryRes, queryRes], (err, result) => {
+    db.query("SELECT * FROM productspricesmaxmin WHERE prname LIKE ? OR shopname LIKE ? ORDER BY overall DESC", [queryRes, queryRes], (err, result) => {
         if(err){
             console.log(err);
         }
@@ -746,6 +746,39 @@ app.get('/getselectedvariety/:product_id/:type/:size', jwtverifier, (req, res) =
     })
 })
 
+const emailForPaid = (user_id, order_id, product_id, email, payment_method, order_total, shopName, date_ordered) => {
+    const userName = user_id;
+    const orderID = order_id;
+    const productID = product_id;
+    const emailuser = email;
+    const paymentMethod = payment_method;
+    const totalPrice = order_total;
+    const shopNameOrder = shopName;
+    const datePaid = date_ordered;
+
+    const mailOptions = {
+        from: 'shopperia.philippines@gmail.com',
+        to: emailuser,
+        subject: `Receipt for ${orderID}`,
+        // text: `Good Day ${userName}! You have Successfully paid you Order: ${orderID} using Payment Method of ${paymentMethod} with the total price of PHP${totalPrice}.`
+        html: `<h3>Good Day ${userName}!</h3><br />
+        <p>You have Successfully paid you <b>Order: ${orderID}</b> using Payment Method of <b>${paymentMethod}</b> with the total price of <b>PHP ${totalPrice}</b>.</p><br />
+        <span><b>Shop Name: ${shopNameOrder}</span></b><br />
+        <span><b>Product ID: ${productID}</span></b><br />
+        <span><b>Date of Payment: ${datePaid}</b></span>`
+    }
+
+    accountTransport.sendMail(mailOptions, (err, info) => {
+        if(err){
+            console.log(err);
+        }
+        {
+            //dbquery for notifications
+        }
+    })
+    // console.log(emailuser);
+}
+
 app.post('/postorder', jwtverifier, (req, res) => {
 
     var today = new Date();
@@ -767,7 +800,11 @@ app.post('/postorder', jwtverifier, (req, res) => {
     const date_ordered = today_fixed;
     const date_accomplished = "Not Accomplished";
     const order_id = `${product_id}_${makeid(10)}`;
+    const payment_method = req.body.pmethod;
     const order_total = req.body.order_total;
+    const payment_status = payment_method != "COD" && payment_method != "none"? "paid" : "not_paid";
+    const email = req.body.email;
+    const shopName = req.body.shopName;
 
     // console.log(req.body);
     if(var_id == "" || var_id == null){
@@ -778,13 +815,17 @@ app.post('/postorder', jwtverifier, (req, res) => {
             res.send({status: false, message: "No Quantity to Order"});
         }
         else{
-            db.query("INSERT INTO user_orders (user_id,receiver,fulladdress,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", [user_id,receiver,full_address,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total], (err) => {
+            db.query("INSERT INTO user_orders (user_id,receiver,fulladdress,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [user_id,receiver,full_address,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status], (err) => {
                 if(err){
                     console.log(err);
                     res.send({status: false, message: "Order / Add to Cart Unsuccessful"});
                 }
                 else{
                     res.send({status: true, message: status == "Cart"? "Product has been Added to Cart" : "Product has been Successfully Ordered"});
+                    if(payment_method != "COD"){
+                        emailForPaid(user_id, order_id, product_id, email, payment_method, order_total, shopName, date_ordered);
+                        // console.log(true);
+                    }
                 }
             })
         }
@@ -1043,6 +1084,109 @@ app.post('/verifySeller', jwtverifierverification, (req, res) => {
                 // console.log(false);
                 res.send({status: false, message: "Invalid Code"});
             }
+        }
+    })
+})
+
+app.post('/addpaymentaccount', jwtverifier, (req, res) => {
+    const userName = req.body.userName;
+    const account_name = req.body.account_name;
+    const account_email = req.body.account_email;
+    const account_address = req.body.account_address;
+    const account_time_added = req.body.account_time_added;
+    const accountType = req.body.accountType;
+
+    // console.log(req.body);
+
+    const insertData = () => {
+        db.query("INSERT INTO payment_accounts (userName, account_name, account_email, account_address, account_time_added, account_type) VALUES (?,?,?,?,?,?)", [userName,account_name,account_email,account_address,account_time_added,accountType], (err) => {
+            if(err){
+                console.log(err);
+                res.send({status: false, message: "Cannot Add Account!"});
+            }
+            else{
+                res.send({status: true, message: "Account Added!"});
+            }
+        })
+    }
+
+    db.query("SELECT account_email, account_type FROM payment_accounts WHERE account_email = ? AND account_type = ?", [account_email, accountType], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            if(result.length > 0){
+                if(result[0].account_email != account_email && result[0].account_type != account_type){
+                    insertData();
+                }
+                else{
+                    res.send({status: false, message: "Account ALready Added!"});
+                }
+            }
+            else{
+                insertData();
+            }
+        }
+    })
+})
+
+app.get('/paymentaccountslist/:userName', jwtverifier, (req, res) => {
+    const userName = req.params.userName;
+
+    db.query("SELECT userName, account_name, account_email, account_address, account_time_added, account_type FROM payment_accounts WHERE userName = ?", userName, (err, result) => {
+        if(err){
+            console.log(err)
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/usercredsvalidation/:userName', jwtverifier, (req, res) => {
+    const userName = req.params.userName;
+
+    db.query("SELECT (SELECT COUNT(id) FROM user_addresses WHERE userName = ?) as total_addresses, (SELECT COUNT(id) FROM contact_details WHERE userName = ?) as total_contacts", [userName, userName], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            if(result.length > 0){
+                // console.log(true);
+                if(result[0].total_addresses <= 0){
+                    // console.log("false address");
+                    res.send({status: false, message: "You have no Saved Address"});
+                }
+                else if(result[0].total_contacts <= 0){
+                    // console.log("false contacts");
+                    res.send({status: false, message: "You have no Saved Contact"});
+                }
+                else if(result[0].total_contacts <= 0 && result[0].total_addresses <= 0){
+                    // console.log("both false");
+                    res.send({status: false, message: "You have No Saved Address and Contact"});
+                }
+                else if(result[0].total_contacts > 0 && result[0].total_addresses > 0){
+                    // console.log("Eligible!");
+                    res.send({status: true});
+                }
+            }
+            else{
+                console.log(false);
+            }
+        }
+    })
+})
+
+app.get('/getemailcustomer/:userName', jwtverifier, (req, res) => {
+    const userName = req.params.userName;
+
+    db.query("SELECT email FROM user_accounts WHERE userName = ?", userName, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            res.send(result[0].email);
         }
     })
 })
