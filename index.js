@@ -1193,6 +1193,49 @@ app.get('/getemailcustomer/:userName', jwtverifier, (req, res) => {
     })
 })
 
+app.post('/confirmshopaddress', jwtverifier, (req, res) => {
+    const shopID = req.body.shopID;
+    const houseno = req.body.houseno;
+    const street = req.body.street;
+    const barangay = req.body.barangay;
+    const city_town = req.body.city_town;
+    const province = req.body.province;
+    const region = req.body.region;
+    const postalCode = req.body.postalCode;
+
+    db.query("INSERT INTO shop_addresses (shopID,houseNo,street,barangay,city_town,province,region,postalCode) VALUES (?,?,?,?,?,?,?,?)", [shopID,houseno,street,barangay,city_town,province,region,postalCode], (err) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send({status: true});
+        }
+    })
+})
+
+app.get('/shopaddressget/:shopID', jwtverifier, (req, res) => {
+    const shopID = req.params.shopID;
+
+    db.query("SELECT * FROM shop_addresses WHERE shopID = ?", shopID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            if(result.length == 1){
+                const houseno = result[0].houseNo;
+                const street = result[0].street;
+                const barangay = result[0].barangay;
+                const city_town = result[0].city_town;
+                const province = result[0].province;
+                const region = result[0].region;
+                const postalCode = result[0].postalCode;
+                res.send(`${houseno}, ${street}, ${barangay}, ${city_town}, ${province}, ${region}, ${postalCode}`);
+            }
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
