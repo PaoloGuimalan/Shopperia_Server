@@ -8,6 +8,7 @@ const jwt = require("jsonwebtoken");
 const fileUpload = require("express-fileupload");
 const path = require("path")
 const nodemailer = require("nodemailer");
+const TMClient = require("textmagic-rest-client");
 
 const accountTransport = nodemailer.createTransport({
     service: "gmail",
@@ -1232,6 +1233,40 @@ app.get('/shopaddressget/:shopID', jwtverifier, (req, res) => {
                 const postalCode = result[0].postalCode;
                 res.send(`${houseno}, ${street}, ${barangay}, ${city_town}, ${province}, ${region}, ${postalCode}`);
             }
+        }
+    })
+})
+
+app.post('/sendSMSseller', jwtverifier, (req, res) => {
+    const shopID = req.body.shopID;
+    const conumber = req.body.conumber;
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
+    db.query("INSERT INTO shop_contactnumbers (shopID,contactNumber,date_added) VALUES (?,?,?)", [shopID, conumber, today_fixed], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send({status: true, message: "Contact Number Added!"});
+        }
+    })
+})
+
+app.get('/getshopcontactnumber/:shopID', jwtverifier, (req, res) => {
+    const shopID = req.params.shopID;
+
+    db.query("SELECT * FROM shop_contactnumbers WHERE shopID = ?", shopID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result[0]);
         }
     })
 })
