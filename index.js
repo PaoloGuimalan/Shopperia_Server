@@ -1271,6 +1271,20 @@ app.get('/getshopcontactnumber/:shopID', jwtverifier, (req, res) => {
     })
 })
 
+app.get('/verificationTwoStatus/:shopID', jwtverifier, (req, res) => {
+    const shopID = req.params.shopID;
+
+    db.query("SELECT * FROM verification_data WHERE user_id = ?", shopID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+            // console.log(shopID);
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
