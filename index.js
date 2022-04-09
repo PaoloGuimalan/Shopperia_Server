@@ -859,6 +859,14 @@ app.get('/shopImgs/:profimg', (req, res) => {
     const imgResult = res.sendFile(filePath);
 })
 
+app.get('/adminImgs/:profimg', (req, res) => {
+    const img = req.params.profimg;
+    const filePath = path.join(`${__dirname}`, `/uploads/admin_profiles/${img}`);
+
+    // res.sendFile()
+    const imgResult = res.sendFile(filePath);
+})
+
 app.get('/searchshop/:shopname', (req, res) => {
     const shopname = req.params.shopname;
     const shopnamequery = `%${shopname.split("_").join(" ")}%`
@@ -1283,6 +1291,121 @@ app.get('/verificationTwoStatus/:shopID', jwtverifier, (req, res) => {
             // console.log(shopID);
         }
     })
+})
+
+app.post('/loginadmin', (req, res) => {
+    const employeeID = req.body.employeeID;
+    const password = req.body.password;
+
+    db.query("SELECT employeeID, fullName FROM admin_accounts WHERE employeeID = ? AND password = ?", [employeeID, password], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            if(result.length == 0){
+                res.send({status: false, message: "Wrong Credentials"});
+            }
+            else{
+                if(result[0].employeeID == employeeID){
+                    const token = jwt.sign({employeeID}, "shopperiaprojectinsia102", {
+                        expiresIn: 60 * 60 * 24 * 7
+                    })
+                    res.send({status: true, employeeID: employeeID, fullName: result[0].fullName, token: token, message: "Logged In!"})
+                }
+                else{
+                    res.send({status: false, message: "Unable to Log In!"});
+                }
+            }
+        }
+    })
+})
+
+const jwtadminverifier = (req, res, next) => {
+    const token = req.headers["x-access-token"];
+    if(token){
+        jwt.verify(token, "shopperiaprojectinsia102", (err, decode) => {
+            if(err){
+                res.send({status: false});
+                // console.log("1");
+            }
+            else{
+                // console.log(decode);
+                // console.log("1");
+                const employeeID = decode.employeeID;
+                req.employeeIDresult = decode.employeeID;
+                db.query("SELECT employeeID, fullName FROM admin_accounts WHERE employeeID = ?", [employeeID], (err, result) => {
+                    if(err){
+                        console.log(err);
+                    }
+                    else{
+                        // console.log(result);
+                        if(result.length == 0){
+                            res.send({status: false, message: "Wrong Credentials"});
+                            // console.log(result);
+                        }
+                        else{
+                            if(result[0].employeeID == employeeID){
+                                req.fullNameresult = result[0].fullName;
+                                next()
+                            }
+                            else{
+                                res.send({status: false, message: "Unable to Log In!"});
+                            }
+                        }
+                    }
+                })
+            }
+        })
+    }
+    else{
+        res.send({status: false});
+    }
+}
+
+app.get('/adminData/:adminID', jwtadminverifier, (req, res) => {
+    const adminID =  req.params.adminID;
+
+    db.query("SELECT * FROM admin_accounts WHERE employeeID = ?", adminID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/messagesAdmin/:username', jwtadminverifier, (req, res) => {
+    const username = req.params.username;
+
+    db.query("SELECT * FROM messages_table WHERE id IN (SELECT MAX(id) FROM messages_table WHERE conversation_id IN (SELECT conversation_id FROM messages_table WHERE messages_table.from = ? OR messages_table.to = ? GROUP BY conversation_id) GROUP BY conversation_id) ORDER BY id DESC", [username, username], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/messagesInboxAdmin/:username/:othername', jwtadminverifier, (req, res) => {
+    const username = req.params.username;
+    const othername = req.params.othername;
+
+    db.query("SELECT * FROM messages_table WHERE messages_table.from = ? AND messages_table.to = ? OR messages_table.from = ? AND messages_table.to = ? Order by id", [othername, username, username, othername], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            res.send(result);
+        }
+    })
+})
+
+app.get('/verifysessionadmin', jwtadminverifier, (req, res) => {
+    res.send({status: true, employeeID: req.employeeIDresult, fullName: req.fullNameresult});
 })
 
 app.listen(PORT, () => {
