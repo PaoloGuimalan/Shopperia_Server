@@ -1408,6 +1408,182 @@ app.get('/verifysessionadmin', jwtadminverifier, (req, res) => {
     res.send({status: true, employeeID: req.employeeIDresult, fullName: req.fullNameresult});
 })
 
+app.get('/chatSupportMessage/:userID', jwtverifier, (req, res) => {
+    const userID = req.params.userID;
+
+    db.query("SELECT conversation_id FROM messages_table WHERE messages_table.from IN (SELECT employeeID FROM admin_accounts WHERE status = 'enabled') AND messages_table.to = ? OR messages_table.from = ? AND messages_table.to IN (SELECT employeeID FROM admin_accounts WHERE status = 'enabled'`) Order by id LIMIT 1", [userID, userID], (err, resut) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            console.log(result)
+        }
+    })
+})
+
+app.get('/chatSupportMessageList/:userID', jwtverifier, (req, res) => {
+    const userID = req.params.userID;
+
+    const selectorMethod = (count) => {
+        const randomizer = Math.random() * (count - 1 + 1);
+        const randomizerFinal = Math.floor(randomizer + 1);
+        // console.log(randomizerFinal);
+
+        db.query("SELECT employeeID, status FROM admin_accounts WHERE id = ?", randomizerFinal, (err, result) => {
+            if(err){
+                console.log(err);
+            }
+            else{
+                // console.log(result);
+                if(result.length == 0){
+                    selectorMethod(count);
+                }
+                else{
+                    if(result[0].status == 'disabled'){
+                        selectorMethod(count)
+                    }
+                    else{
+                        // console.log(result[0].employeeID);
+                        res.send(result);
+                    }
+                }
+            }
+        })
+    }
+
+    db.query("SELECT conversation_id FROM messages_table WHERE messages_table.from IN (SELECT employeeID FROM admin_accounts WHERE status = 'enabled') AND messages_table.to = ? OR messages_table.from = ? AND messages_table.to IN (SELECT employeeID FROM admin_accounts WHERE status = 'enabled') Order by id LIMIT 1", [userID, userID], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result)
+            if(result.length != 0){
+                // console.log(result);
+
+                db.query("SELECT messages_table.from, messages_table.to FROM messages_table WHERE conversation_id = ? LIMIT 1", result[0].conversation_id, (err, result) => {
+                    if(err){
+                        console.log(err);
+                    }
+                    else{
+                        // console.log(result[0].from == userID? result[0].to : result[0].from);
+                        // console.log([{employeeID: result[0].from == userID? result[0].to : result[0].from}])
+                        res.send([{employeeID: result[0].from == userID? result[0].to : result[0].from}]);
+                    }
+                })
+
+                // db.query("SELECT employeeID FROM admin_accounts WHERE id = ? AND status = 'enabled'", )
+            }
+            else{
+                // console.log(false);
+                db.query("SELECT COUNT(employeeID) AS totalav FROM admin_accounts", (err, result2) => {
+                    if(err){
+                        console.log(err);
+                    }
+                    else{
+                        // console.log(result2[0].totalav);
+                        selectorMethod(result2[0].totalav);
+                    }
+                })
+            }
+        }
+    })
+})
+
+app.get('/messagesInboxAdmin/:username/:othername', jwtadminverifier, (req, res) => {
+    const username = req.params.username;
+    const othername = req.params.othername;
+
+    db.query("SELECT * FROM messages_table WHERE messages_table.from = ? AND messages_table.to = ? OR messages_table.from = ? AND messages_table.to = ? Order by id", [othername, username, username, othername], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            res.send(result);
+        }
+    })
+})
+
+app.post('/sendMessageAdmin', jwtadminverifier, (req, res) => {
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
+    const message_content = req.body.message_content;
+    const from = req.body.from;
+    const to = req.body.to;
+
+    function sendPrompt(conversation_id){
+        db.query("INSERT INTO messages_table (conversation_id, message_content, date_sent, messages_table.from, messages_table.to) VALUES (?,?,?,?,?)", [conversation_id, message_content, today_fixed, from, to], (err) => {
+            if(err){
+                console.log(err);
+            }
+            else{
+                res.send({status: true});
+            }
+        })
+    }
+
+    db.query("SELECT conversation_id FROM messages_table WHERE messages_table.from = ? AND messages_table.to = ? OR messages_table.from = ? AND messages_table.to = ? Order by id", [to, from, from, to], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            if(result.length == 0){
+                // console.log(true);
+                const conversation_id_null = `chat_id_${makeid(15)}`;
+                sendPrompt(conversation_id_null);
+            }
+            else{
+                const conversation_id_defined = result[0].conversation_id;
+                sendPrompt(conversation_id_defined);
+                // console.log(false);
+            }
+        }
+    })
+})
+
+app.get('/userOrdersData/:orderID', jwtadminverifier, (req, res) => {
+    const orderID = req.params.orderID;
+
+    db.query("SELECT * FROM user_orders WHERE order_id = ?", orderID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result[0]);
+            // res.send(result[0]);
+            if(result.length != 0){
+                const orderIDres = result[0].order_id;
+                db.query("SELECT * FROM cart_view WHERE order_id = ?", orderIDres, (err2, result2) => {
+                    if(err2){
+                        console.log(err2);
+                    }
+                    else{
+                        const shopID = result2[0].shopID;
+                        db.query("SELECT seller_accounts.email, seller_accounts.shopName, seller_accounts.shopID, seller_accounts.shop_preview, concat(seller_accounts.seller_lastName,', ', seller_accounts.seller_firstName,', ',seller_accounts.seller_middleName) AS fullName, concat(shop_addresses.houseNo, ', ',shop_addresses.street,', ',shop_addresses.barangay,', ',shop_addresses.city_town,', ',shop_addresses.province,', ',shop_addresses.region,', ',shop_addresses.postalCode) AS fullAddress, shop_contactnumbers.contactNumber FROM seller_accounts, shop_addresses, shop_contactnumbers WHERE seller_accounts.shopID = ? AND shop_addresses.shopID = ? AND shop_contactnumbers.shopID = ?" ,[shopID, shopID, shopID], (err3, result3) => {
+                            if(err3){
+                                console.log(err3);
+                            }
+                            else{
+                                // console.log(shopID)
+                                res.send({results: {result_one: result[0], result_two: result2[0], result_three: result3[0]}})
+                            }
+                        })
+                    }
+                })
+            }
+            else{
+                console.log(false);
+            }
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
