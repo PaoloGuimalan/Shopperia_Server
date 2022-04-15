@@ -792,6 +792,7 @@ app.post('/postorder', jwtverifier, (req, res) => {
     const user_id = req.body.user_id;
     const receiver = req.body.receiver;
     const full_address = req.body.full_address;
+    const city_town = req.body.city_town;
     const province = req.body.province;
     const postalCode = req.body.postalCode;
     const product_id = req.body.product_id;
@@ -817,7 +818,7 @@ app.post('/postorder', jwtverifier, (req, res) => {
             res.send({status: false, message: "No Quantity to Order"});
         }
         else{
-            db.query("INSERT INTO user_orders (user_id,receiver,fulladdress,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status,remarks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [user_id,receiver,full_address,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status,remarks], (err) => {
+            db.query("INSERT INTO user_orders (user_id,receiver,fulladdress,city_town,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status,remarks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [user_id,receiver,full_address,city_town,province,postalCode,product_id,var_id,variety,status,date_ordered,date_accomplished,order_id,order_total,payment_method,payment_status,remarks], (err) => {
                 if(err){
                     console.log(err);
                     res.send({status: false, message: "Order / Add to Cart Unsuccessful"});
@@ -917,27 +918,41 @@ app.post('/updateshopico', jwtverifier, (req, res) => {
     })
 })
 
-app.get('/ordersfetch/:shopID/:status', jwtverifier, (req, res) => {
+app.get('/ordersfetch/:shopID/:status/:remarks', jwtverifier, (req, res) => {
     const shopID = req.params.shopID;
     const status = req.params.status;
+    const remarks = req.params.remarks;
 
     // console.log(req.params.shopID);
 
-    db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ?", [shopID, status], (err, result) => {
-        if(err){
-            console.log(err);
-        }
-        else{
-            res.send(result)
-            // console.log(result);
-        }
-    })
+    if(status == "Pending"){
+        db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ? AND remarks = ?", [shopID, status, remarks], (err, result) => {
+            if(err){
+                console.log(err);
+            }
+            else{
+                res.send(result)
+                // console.log(result);
+            }
+        })
+    }
+    else{
+        db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ?", [shopID, status], (err, result) => {
+            if(err){
+                console.log(err);
+            }
+            else{
+                res.send(result)
+                // console.log(result);
+            }
+        })
+    }
 })
 
 app.post('/updateOrderStatus', jwtverifier, (req, res) => {
     const order_id = req.body.order_id;
     const status = req.body.status;
-    const remarks = status == "Removed"? "Removed from Cart":"Confirming Order";
+    const remarks = req.body.remarks;
 
     // console.log(order_id);
 
@@ -1580,6 +1595,217 @@ app.get('/userOrdersData/:orderID', jwtadminverifier, (req, res) => {
             else{
                 console.log(false);
             }
+        }
+    })
+})
+
+app.get('/incomingorders/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM cart_view WHERE remarks = ?  AND shopAddress = ? OR remarks = ?", ["For Ship Out", branch, `Transferring to ${branch}`], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/ordersToDeliver/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM cart_view WHERE remarks = ?  AND shopAddress = ? OR remarks = ?", [`On Pick Up`, branch, `In Warehouse ${branch}`], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/availriders/:adminBranch', jwtadminverifier, (req, res) => {
+    const adminBranch = req.params.adminBranch;
+    db.query("SELECT * FROM rider_accounts WHERE acc_status = 'enabled' AND status = 'online' AND branch = ?", [adminBranch], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/selectBranches', jwtadminverifier, (req, res) => {
+    db.query("SELECT branch FROM admin_accounts GROUP BY branch", (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.post('/assignRider', jwtadminverifier, (req, res) => {
+    const order_id = req.body.order_id;
+    const rider_id = req.body.rider_id;
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
+    db.query("INSERT INTO rider_assign (order_id, rider_id, order_status, date_made) VALUES (?,?,?,?)", [order_id, rider_id, "On Pick Up", today_fixed], (err, result) => {
+        if(err){
+            console.log(err);
+        }else{
+            // res.send({status: true, message: "Order has been set to Pick Up"});
+            db.query("UPDATE user_orders SET remarks = ? WHERE order_id = ?", ["On Pick Up", order_id], (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }else{
+                    res.send({status: true, message: "Order has been set to Pick Up"});
+                }
+            })
+        }
+    })
+
+    // console.log(req.body);
+})
+
+app.post('/deliveryRider', jwtadminverifier, (req, res) => {
+    const order_id = req.body.order_id;
+    const rider_id = req.body.rider_id;
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
+    db.query("INSERT INTO rider_assign (order_id, rider_id, order_status, date_made) VALUES (?,?,?,?)", [order_id, rider_id, "On Delivery", today_fixed], (err, result) => {
+        if(err){
+            console.log(err);
+        }else{
+            // res.send({status: true, message: "Order has been set to Pick Up"});
+            db.query("UPDATE user_orders SET status = ?, remarks = ? WHERE order_id = ?", ["OnDelivery", "Out for Delivery", order_id], (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }else{
+                    res.send({status: true, message: "Order is out for Delivery"});
+                }
+            })
+        }
+    })
+})
+
+app.post('/transferBranch', jwtadminverifier, (req, res) => {
+    const order_id = req.body.order_id;
+    const branch = req.body.branch;
+
+    db.query("UPDATE user_orders SET status = ?, remarks = ? WHERE order_id = ?", ["OnDelivery", `Transferring to ${branch}`, order_id], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send({status: true, message: "Order has been set to transfer"});
+        }
+    })
+})
+
+app.post('/confirmTransfer', jwtadminverifier, (req, res) => {
+    const order_id = req.body.order_id;
+    const branch = req.body.branch;
+
+    db.query("UPDATE user_orders SET remarks = ? WHERE order_id = ?", [`In Warehouse ${branch}`, order_id], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send({status: true, message: "Order Received"});
+        }
+    })
+})
+
+app.get('/tranferringList/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM cart_view WHERE remarks LIKE ? AND shopAddress = ?", ["Transferring to%", branch], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/outfordelivery/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM cart_view WHERE remarks = ? AND city_town = ?", ["Out for Delivery", branch], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/shipInUnassigned/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM cart_view WHERE remarks = ? AND shopAddress = ? OR remarks = ?", ["For Ship Out", branch, `Transferring to ${branch}`], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/shipInAssigned/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM rider_assign_view WHERE order_status = ? AND branch = ?", ["On Pick Up", branch], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/shipOutUnassigned/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM cart_view WHERE remarks = ?", [`In Warehouse ${branch}`], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/shipOutAssigned/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM rider_assign_view WHERE remarks = ? AND branch = ?", ["Out for Delivery", branch], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
         }
     })
 })
