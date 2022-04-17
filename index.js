@@ -1810,6 +1810,50 @@ app.get('/shipOutAssigned/:branch', jwtadminverifier, (req, res) => {
     })
 })
 
+const jwtriderverification = (req, res, next) => {
+    const token = req.headers["x-access-token"];
+
+    jwt.verify(token, "shopperiaprojectinsia102", (err, decode) => {
+        if(err){
+            res.send({status: false, message: "Token Denied"});
+        }
+        else{
+            req.riderID = decode.userName.join("");
+            next();
+        }
+    })
+}
+
+app.get('/loginriderverifier', jwtriderverification, (req, res) => {
+    res.send({status: true, riderID: req.riderID});
+})
+
+app.post('/loginRider', (req, res) => {
+    const email = req.body.email;
+    const password =  req.body.password;
+
+    // console.log(req.body);
+
+    db.query("SELECT * FROM rider_accounts WHERE email = ? AND password = ?", [email, password], (err, result) => {
+        if(err){
+            res.send({statue: true, message: "Unable to Log In"});
+            console.log(err);
+        }
+        else{
+            if(result.length > 0){
+                const userName = result.map((id) => id.rider_id);
+                const token = jwt.sign({userName}, "shopperiaprojectinsia102", {
+                    expiresIn: 60 * 60 * 24 * 7
+                })
+                res.send({status: true, token: token, message: "Successfully Logged In", riderID: userName.join("")});
+            }
+            else{
+                res.send({status: false, message: "Wrong Account Informations"});
+            }
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
