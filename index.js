@@ -1854,6 +1854,32 @@ app.post('/loginRider', (req, res) => {
     })
 })
 
+app.get('/toRetrieve/:rider_id', jwtriderverification, (req, res) => {
+    const rider_id = req.params.rider_id;
+
+    db.query("SELECT * FROM rider_assign_view WHERE rider_id = ? AND order_status = 'On Pick Up'", [rider_id], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/toDeliver/:rider_id', jwtriderverification, (req, res) => {
+    const rider_id = req.params.rider_id;
+
+    db.query("SELECT * FROM rider_assign_view WHERE rider_id = ? AND order_status = 'On Delivery'", [rider_id], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Port Running: ${PORT}`)
 });
