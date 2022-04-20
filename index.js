@@ -19,6 +19,7 @@ const accountTransport = nodemailer.createTransport({
 })
 
 const connectionMysql = require("./connections/connectionMysql");
+const { createBrotliCompress } = require("zlib");
 const db = mysql.createConnection(connectionMysql);
 
 app.use(bodyParser.urlencoded({extended: false }));
@@ -1818,14 +1819,25 @@ const jwtriderverification = (req, res, next) => {
             res.send({status: false, message: "Token Denied"});
         }
         else{
-            req.riderID = decode.userName.join("");
-            next();
+            const riderID = decode.userName.join("");
+            db.query("SELECT * FROM rider_accounts WHERE rider_id = ?", riderID, (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    if(result2.length > 0){
+                        req.riderID = decode.userName.join("");
+                        req.branch = result2[0].branch;
+                        next();
+                    }
+                }
+            })
         }
     })
 }
 
 app.get('/loginriderverifier', jwtriderverification, (req, res) => {
-    res.send({status: true, riderID: req.riderID});
+    res.send({status: true, riderID: req.riderID, branch: req.branch});
 })
 
 app.post('/loginRider', (req, res) => {
@@ -1845,7 +1857,7 @@ app.post('/loginRider', (req, res) => {
                 const token = jwt.sign({userName}, "shopperiaprojectinsia102", {
                     expiresIn: 60 * 60 * 24 * 7
                 })
-                res.send({status: true, token: token, message: "Successfully Logged In", riderID: userName.join("")});
+                res.send({status: true, token: token, message: "Successfully Logged In", riderID: userName.join(""), branch: result[0].branch});
             }
             else{
                 res.send({status: false, message: "Wrong Account Informations"});
@@ -1871,6 +1883,87 @@ app.get('/toDeliver/:rider_id', jwtriderverification, (req, res) => {
     const rider_id = req.params.rider_id;
 
     db.query("SELECT * FROM rider_assign_view WHERE rider_id = ? AND order_status = 'On Delivery'", [rider_id], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.post('/retrieveConfirm', jwtriderverification, (req, res) => {
+    const rider_id = req.body.rider_id;
+    const branch = req.body.branch;
+    const order_id = req.body.order_id;
+
+    db.query("UPDATE rider_assign SET order_status = 'Retrieved' WHERE order_id = ? AND rider_id = ? AND order_status = ?", [order_id, rider_id, "On Pick Up"], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            db.query("UPDATE user_orders SET status = 'OnDelivery', remarks = ? WHERE order_id = ?", [`In Warehouse ${branch}`, order_id], (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    res.send({status: true, message: `${order_id} has been Retrieved!`});
+                }
+            })
+        }
+    })
+
+    // console.log(req.body);
+})
+
+app.post('/deliverConfirm', jwtriderverification, (req, res) => {
+    const rider_id = req.body.rider_id;
+    const branch = req.body.branch;
+    const order_id = req.body.order_id;
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+    var yyyy = today.getFullYear();
+    
+    var today_fixed = mm + '/' + dd + '/' + yyyy;
+
+    db.query("UPDATE rider_assign SET order_status = 'Delivered' WHERE order_id = ? AND rider_id = ? AND order_status = ?", [order_id, rider_id, "On Delivery"], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            db.query("UPDATE user_orders SET status = 'Received', remarks = ?, date_accomplished = ? WHERE order_id = ?", [`Order Successfully Delivered`, today_fixed, order_id], (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    res.send({status: true, message: `${order_id} has been Successfully Delivered!`});
+                }
+            })
+        }
+    })
+
+    // console.log(req.body);
+})
+
+app.get('/getRiderInfo/:order_id', jwtverifier, (req, res) => {
+    const order_id = req.params.order_id;
+
+    db.query("SELECT * FROM rider_assign_view WHERE order_id = ?", [order_id], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result[0]);
+        }
+    })
+})
+
+app.get('/messagesRider/:username', jwtriderverification, (req, res) => {
+    const username = req.params.username;
+
+    db.query("SELECT * FROM messages_table WHERE id IN (SELECT MAX(id) FROM messages_table WHERE conversation_id IN (SELECT conversation_id FROM messages_table WHERE messages_table.from = ? OR messages_table.to = ? GROUP BY conversation_id) GROUP BY conversation_id) ORDER BY id DESC", [username, username], (err, result) => {
         if(err){
             console.log(err);
         }
