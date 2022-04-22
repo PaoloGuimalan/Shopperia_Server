@@ -927,15 +927,28 @@ app.get('/ordersfetch/:shopID/:status/:remarks', jwtverifier, (req, res) => {
     // console.log(req.params.shopID);
 
     if(status == "Pending"){
-        db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ? AND remarks = ?", [shopID, status, remarks], (err, result) => {
-            if(err){
-                console.log(err);
-            }
-            else{
-                res.send(result)
-                // console.log(result);
-            }
-        })
+        if(remarks == "For Ship Out"){
+            db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ? AND remarks = ? OR remarks = ?", [shopID, status, remarks, "On Pick Up"], (err, result) => {
+                if(err){
+                    console.log(err);
+                }
+                else{
+                    res.send(result)
+                    // console.log(result);
+                }
+            })
+        }
+        else{
+            db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ? AND remarks = ?", [shopID, status, remarks], (err, result) => {
+                if(err){
+                    console.log(err);
+                }
+                else{
+                    res.send(result)
+                    // console.log(result);
+                }
+            })
+        }
     }
     else{
         db.query("SELECT * FROM cart_view WHERE shopname = ? AND status = ?", [shopID, status], (err, result) => {
@@ -2026,6 +2039,61 @@ app.post('/sendMessageRider', jwtriderverification, (req, res) => {
                 const conversation_id_defined = result[0].conversation_id;
                 sendPrompt(conversation_id_defined);
                 // console.log(false);
+            }
+        }
+    })
+})
+
+app.get('/conchatRider/:order_id', jwtverifier, (req, res) => {
+    const order_id = req.params.order_id;
+
+    db.query("SELECT rider_id FROM rider_assign WHERE order_id = ?", [order_id], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result[0]);
+            res.send(result[0]);
+        }
+    })
+})
+
+app.get('/retrievedHistory/:rider_id', jwtriderverification, (req, res) => {
+    const rider_id = req.params.rider_id;
+
+    db.query("SELECT * FROM rider_assign_view WHERE rider_id = ? AND order_status = ?", [rider_id, "Retrieved"], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/getviewOrderDetails/:order_id', jwtverifier, (req, res) => {
+    const order_id = req.params.order_id;
+
+    db.query("SELECT * FROM cart_view WHERE order_id = ?", order_id, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            if(result.length != 0){
+                // console.log({...result[0]});
+                if(result[0].remarks == "Out for Delivery"){
+                    db.query("SELECT * FROM rider_assign_view WHERE order_id = ?", order_id, (err2, result2) => {
+                        if(err2){
+                            console.log(err2);
+                        }
+                        else{
+                            res.send([{...result[0], ...result2[0]}]);
+                        }
+                    })
+                }
+                else{
+                    res.send([{...result[0]}]);
+                }
             }
         }
     })
