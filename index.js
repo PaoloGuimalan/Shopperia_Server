@@ -20,6 +20,7 @@ const accountTransport = nodemailer.createTransport({
 
 const connectionMysql = require("./connections/connectionMysql");
 const { createBrotliCompress } = require("zlib");
+const e = require("express");
 const db = mysql.createConnection(connectionMysql);
 
 app.use(bodyParser.urlencoded({extended: false }));
@@ -2094,6 +2095,93 @@ app.get('/getviewOrderDetails/:order_id', jwtverifier, (req, res) => {
                 else{
                     res.send([{...result[0]}]);
                 }
+            }
+        }
+    })
+})
+
+app.post('/setdefaultadd', jwtverifier, (req, res) => {
+    const id = req.body.id;
+    const status = req.body.status;
+
+    db.query("UPDATE user_addresses SET status = 'Reserved'", (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            db.query("UPDATE user_addresses SET status = 'Default' WHERE id = ?", id, (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    res.send({status: true, message: "Default Address Changed"});
+                }
+            })
+        }
+    })
+})
+
+app.post('/setdefaultcon', jwtverifier, (req, res) => {
+    const id = req.body.id;
+    const status = req.body.status;
+
+    db.query("UPDATE contact_details SET status = 'Reserved'", (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            db.query("UPDATE contact_details SET status = 'Default' WHERE id = ?", id, (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    res.send({status: true, message: "Default Contact Changed"});
+                }
+            })
+        }
+    })
+})
+
+app.get('/getsavedcontacts/:userName', jwtverifier, (req, res) => {
+    const userName = req.params.userName;
+
+    db.query("SELECT * FROM contact_details WHERE userName = ?", userName, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.post('/postSavedAddress', jwtverifier, (req, res) => {
+    const userName = req.body.userName;
+    const conumber = req.body.connumber;
+    const email = req.body.email;
+
+    function queryContact(status){
+        db.query("INSERT INTO contact_details (userName, contact_number, email, status) VALUES (?,?,?,?)", [userName, conumber, email, status], (err2, result2) => {
+            if(err2){
+                console.log(err2);
+            }
+            else{
+                res.send({status: true, message: "Contact has been Saved"});
+            }
+        })
+    }
+
+    db.query("SELECT COUNT(id) as id FROM contact_details WHERE userName = ?", userName, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result[0].id);
+            if(result[0].id == 0){
+                queryContact("Default");
+            }
+            else{
+                queryContact("Reserved");
             }
         }
     })
