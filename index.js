@@ -980,14 +980,21 @@ app.post('/updateOrderStatus', jwtverifier, (req, res) => {
 
 app.get('/getShopPreview/:shopID', (req, res) => {
     const shopID = req.params.shopID;
-    db.query("SELECT * FROM seller_accounts WHERE shopID = ?", shopID, (err, result) => {
+    db.query("SELECT * FROM seller_prev WHERE shopID = ?", shopID, (err, result) => {
         if(err){
             console.log(err);
         }
         else{
             //{shop_preview: "", shopName: "", shopID: "", shopEmail: ""}
             // console.log(result[0]);
-            res.send({shop_preview: result[0].shop_preview, shopName: result[0].shopName, shopID: result[0].shopID, shopEmail: result[0].email})
+            db.query("SELECT products_list.shopname, avg(overall) as shop_rating FROM product_overalls, products_list WHERE product_overalls.product_id IN (SELECT product_id FROM products_list WHERE shopID = ?);", shopID, (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    res.send({shop_preview: result[0].shop_preview, shopName: result[0].shopName, shopID: result[0].shopID, shopEmail: result[0].email,  fullAddress: result[0].fullAddress, shopRating: result2[0].shop_rating, contactNumber: result[0].contactNumber})
+                }
+            })
         }
     })
 })
@@ -2183,6 +2190,40 @@ app.post('/postSavedAddress', jwtverifier, (req, res) => {
             else{
                 queryContact("Reserved");
             }
+        }
+    })
+})
+
+app.get('/getShopCatBrand/:shopID', (req, res) => {
+    const shopID = req.params.shopID;
+
+    db.query("SELECT prcat FROM shopperia_db.products_list WHERE shopID = ? GROUP BY prcat", shopID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            db.query("SELECT prbrand FROM shopperia_db.products_list WHERE shopID = ? GROUP BY prbrand", shopID, (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    res.send({result: result, result2: result2});
+                }
+            })
+        }
+    })
+})
+
+app.get('/productsShop/:shopID', (req, res) => {
+    const shopID = req.params.shopID
+    // console.log(queryRes);
+    db.query("SELECT * FROM productspricesmaxmin WHERE shopID = ? ORDER BY overall DESC", shopID, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            res.send(result);
         }
     })
 })
