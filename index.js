@@ -9,6 +9,7 @@ const fileUpload = require("express-fileupload");
 const path = require("path")
 const nodemailer = require("nodemailer");
 const TMClient = require("textmagic-rest-client");
+const socketIO = require("socket.io");
 
 const accountTransport = nodemailer.createTransport({
     service: "gmail",
@@ -32,6 +33,17 @@ app.use(cors({
     credentials: true,
     optionsSuccessStatus: 200
 }))
+
+const server = app.listen(PORT, () => {
+    console.log(`Port Running: ${PORT}`)
+});
+
+const io = socketIO(server, {cors: {
+    origin: "*",
+    methods: "*",
+    allowedHeaders: ["my-custom-header"],
+    credentials: true
+}});
 
 const jwtverifier = (req, res, next) => {
     const tokenFromUser = req.headers["x-access-token"];
@@ -1937,6 +1949,49 @@ app.post('/retrieveConfirm', jwtriderverification, (req, res) => {
     // console.log(req.body);
 })
 
+const emailForDeliver = (user_id, order_id, product_id, email, payment_method, order_total, shopName, date_delivered, date_ordered) => {
+    const userName = user_id;
+    const orderID = order_id;
+    const productID = product_id;
+    const emailuser = email;
+    const paymentMethod = payment_method;
+    const totalPrice = order_total;
+    const shopNameOrder = shopName;
+    const datePaid = date_ordered;
+
+    const htmlMessageCOD = `<h3>Good Day ${userName}!</h3><br />
+    <p>Your Order has been Successfully Delivered and you have Successfully Paid your <b>Order: ${orderID}</b> using Payment Method of <b>${paymentMethod}</b> with the total price of <b>PHP ${totalPrice}</b>.</p><br />
+    <span><b>Shop Name: ${shopNameOrder}</span></b><br />
+    <span><b>Product ID: ${productID}</span></b><br />
+    <span><b>Date of Payment: ${date_delivered}</b></span><br />
+    <span><b>Date Delivered: ${date_delivered}</b></span>`
+
+    const htmlMessagePaid = `<h3>Good Day ${userName}!</h3><br />
+    <p>Your Order has been Successfully Delivered <b>Order: ${orderID}</b> and noticeably were already paid using Payment Method of <b>${paymentMethod}</b> with the total price of <b>PHP ${totalPrice}</b>.</p><br />
+    <span><b>Shop Name: ${shopNameOrder}</span></b><br />
+    <span><b>Product ID: ${productID}</span></b><br />
+    <span><b>Date of Payment: ${datePaid}</b></span><br />
+    <span><b>Date Delivered: ${date_delivered}</b></span>`
+
+    const mailOptions = {
+        from: 'shopperia.philippines@gmail.com',
+        to: emailuser,
+        subject: `Receipt for ${orderID}`,
+        // text: `Good Day ${userName}! You have Successfully paid you Order: ${orderID} using Payment Method of ${paymentMethod} with the total price of PHP${totalPrice}.`
+        html: paymentMethod == "COD"? htmlMessageCOD : htmlMessagePaid
+    }
+
+    accountTransport.sendMail(mailOptions, (err, info) => {
+        if(err){
+            console.log(err);
+        }
+        {
+            //dbquery for notifications
+        }
+    })
+    // console.log(emailuser);
+}
+
 app.post('/deliverConfirm', jwtriderverification, (req, res) => {
     const rider_id = req.body.rider_id;
     const branch = req.body.branch;
@@ -1960,6 +2015,21 @@ app.post('/deliverConfirm', jwtriderverification, (req, res) => {
                 }
                 else{
                     res.send({status: true, message: `${order_id} has been Successfully Delivered!`});
+                    db.query("SELECT * FROM cart_view WHERE order_id = ?", order_id, (err3, result3) => {
+                        if(err3){
+                            console.log(err3);
+                        }
+                        else{
+                            db.query("SELECT email FROM user_accounts WHERE userName = ?", result3[0].user_id, (err4, result4) => {
+                                if(err4){
+                                    console.log(err4);
+                                }
+                                else{
+                                    emailForDeliver(result3[0].user_id, result3[0].order_id, result3[0].product_id, result4[0].email, result3[0].payment_method, result3[0].order_total, result3[0].shopname, today_fixed, result3[0].date_ordered);
+                                }
+                            })
+                        }
+                    })
                 }
             })
         }
@@ -2228,6 +2298,46 @@ app.get('/productsShop/:shopID', (req, res) => {
     })
 })
 
-app.listen(PORT, () => {
-    console.log(`Port Running: ${PORT}`)
-});
+app.get('/getSellerLists/:admin_branch', jwtadminverifier, (req, res) => {
+    const admin_branch = req.params.admin_branch;
+
+    // console.log(admin_branch)
+
+    db.query("SELECT * FROM seller_prev WHERE shopID IN (SELECT shopID FROM shop_addresses WHERE city_town = ?)", admin_branch, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.post('/verificationSellerProcess', jwtadminverifier, (req, res) => {
+    const shopID = req.body.shopID;
+    const data = req.body.data;
+
+    db.query("UPDATE verification_data SET ver_status_two = ? WHERE user_id = ?", [data, shopID], (err, resuly) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send({status: true, message: "Seller Verification has been set!"});
+        }
+    })
+})
+
+//SOCKET IO SECTION
+
+
+io.on("connection", socket => {
+    // console.log(socket.id);
+
+    socket.on("connected", riderID => {
+        // console.log(riderID);
+    })
+
+})
+
+
+//SOCKET IO SECTION
