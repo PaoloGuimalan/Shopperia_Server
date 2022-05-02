@@ -2327,6 +2327,46 @@ app.post('/verificationSellerProcess', jwtadminverifier, (req, res) => {
     })
 })
 
+app.get('/getproductinfoadmin/:product_id/:shopID', jwtverifier, (req, res) => {
+    const product_id = req.params.product_id;
+    const shopID = req.params.shopID;
+
+    // console.log(req.params);
+
+    db.query("SELECT * FROM products_list WHERE product_id = ? AND shopID = ?", [product_id, shopID], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            db.query("SELECT * FROM products_variety WHERE pr_id = ?", product_id, (err2, result2) => {
+                if(err2){
+                    console.log(err2);
+                }
+                else{
+                    // console.log({product: result, variety: result2})
+                    db.query("SELECT * FROM product_overalls WHERE product_id = ?", product_id, (err3, result3) => {
+                        if(err3){
+                            console.log(err3);
+                        }
+                        else{
+                            // console.log({product: {...result[0], rate: result3[0].overall}, variety: result2})
+                            db.query("SELECT * FROM user_comments WHERE product_id = ?", product_id, (err4, result4) => {
+                                if(err4){
+                                    console.log(err4);
+                                }
+                                else{
+                                    res.send({product: {...result[0], rate: result3[0].overall}, variety: result2, comments: result4})
+                                }
+                            })
+                        }
+                    })
+                }
+            })
+        }
+    })
+})
+
 //SOCKET IO SECTION
 
 
