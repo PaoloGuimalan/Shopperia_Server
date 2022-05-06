@@ -2367,6 +2367,20 @@ app.get('/getproductinfoadmin/:product_id/:shopID', jwtverifier, (req, res) => {
     })
 })
 
+app.get('/getCommentsProduct/:product_id', jwtverifier, (req, res) => {
+    const product_id = req.params.product_id;
+
+    db.query("SELECT * FROM user_comments WHERE product_id = ?", product_id, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            res.send(result);
+        }
+    })
+})
+
 //SOCKET IO SECTION
 
 
