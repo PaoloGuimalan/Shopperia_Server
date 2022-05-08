@@ -885,7 +885,7 @@ app.get('/adminImgs/:profimg', (req, res) => {
 app.get('/searchshop/:shopname', (req, res) => {
     const shopname = req.params.shopname;
     const shopnamequery = `%${shopname.split("_").join(" ")}%`
-    db.query("SELECT * FROM seller_prev WHERE shopName LIKE ?", shopnamequery, (err, result) => {
+    db.query("SELECT * FROM seller_prev WHERE shopName LIKE ? AND ver_status_two = 'verified'", shopnamequery, (err, result) => {
         if(err){
             console.log(err);
         }
@@ -2371,6 +2371,29 @@ app.get('/getCommentsProduct/:product_id', jwtverifier, (req, res) => {
     const product_id = req.params.product_id;
 
     db.query("SELECT * FROM user_comments WHERE product_id = ?", product_id, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            // console.log(result);
+            res.send(result);
+        }
+    })
+})
+
+app.get('/homeshopview', (req, res) => {
+    db.query("SELECT * FROM seller_prev WHERE ver_status_two = 'verified'", (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.get('/homeproductsview', (req, res) => {
+    db.query("SELECT * FROM productspricesmaxmin ORDER BY overall DESC", (err, result) => {
         if(err){
             console.log(err);
         }
