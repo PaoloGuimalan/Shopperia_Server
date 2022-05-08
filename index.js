@@ -839,7 +839,7 @@ app.post('/postorder', jwtverifier, (req, res) => {
                 }
                 else{
                     res.send({status: true, message: status == "Cart"? "Product has been Added to Cart" : "Product has been Successfully Ordered"});
-                    if(payment_method != "COD"){
+                    if(payment_method != "COD" && payment_method != "none"){
                         emailForPaid(user_id, order_id, product_id, email, payment_method, order_total, shopName, date_ordered);
                         // console.log(true);
                     }
@@ -2399,6 +2399,19 @@ app.get('/homeproductsview', (req, res) => {
         }
         else{
             // console.log(result);
+            res.send(result);
+        }
+    })
+})
+
+app.get('/getproductvarietyadmin/:product_id', jwtverifier, (req, res) => {
+    const product_id = req.params.product_id;
+
+    db.query("SELECT * FROM products_variety WHERE pr_id = ?", product_id, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
             res.send(result);
         }
     })
