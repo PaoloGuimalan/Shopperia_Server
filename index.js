@@ -2417,6 +2417,53 @@ app.get('/getproductvarietyadmin/:product_id', jwtverifier, (req, res) => {
     })
 })
 
+app.get('/getRiderLists/:branch', jwtadminverifier, (req, res) => {
+    const branch = req.params.branch;
+
+    db.query("SELECT * FROM rider_accounts WHERE branch = ?", branch, (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send(result);
+        }
+    })
+})
+
+app.post('/verificationRiderProcess', jwtadminverifier, (req, res) => {
+    const riderID = req.body.riderID;
+    const data = req.body.data;
+
+    db.query("UPDATE rider_accounts SET acc_status = ? WHERE rider_id = ?", [data, riderID], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send({status: true});
+        }
+    })
+})
+
+app.post('/addRiderProcess', jwtadminverifier, (req, res) => {
+    const firstname = req.body.firstname;
+    const middlename = req.body.middlename;
+    const lastname = req.body.lastname;
+    const email = req.body.email;
+    const password = req.body.password;
+    const branch = req.body.branch;
+
+    const rider_id = `rider_${makeid(5)}`;
+
+    db.query("INSERT INTO rider_accounts (rider_firstName, rider_middleName, rider_lastName, status, acc_status, rider_id, branch, email, password) VALUES (?,?,?,?,?,?,?,?,?)", [firstname, middlename, lastname, "online", "disabled", rider_id, branch, email, password], (err, result) => {
+        if(err){
+            console.log(err);
+        }
+        else{
+            res.send({status: true});
+        }
+    })
+})
+
 //SOCKET IO SECTION
 
 
